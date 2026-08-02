@@ -23,6 +23,7 @@ export default function MusicDock({
   setCustomFromFile,
   setCustomFromUrl,
   clearCustom,
+  requestPlay,
   autoOpen = false,
 }) {
   // open the panel right away when a song rides in on a shared link, so the
@@ -67,7 +68,15 @@ export default function MusicDock({
     const onMsg = (e) => {
       if (!ytRef.current || e.source !== ytRef.current.contentWindow) return;
       if (e.origin !== "https://www.youtube-nocookie.com") return;
-      const d = e.data;
+      // the IFrame API posts events as JSON strings — parse before inspecting
+      let d = e.data;
+      if (typeof d === "string") {
+        try {
+          d = JSON.parse(d);
+        } catch {
+          return;
+        }
+      }
       if (!d || typeof d !== "object") return;
       if (d.event === "onReady") setYtReadyFor(customTrack?.src ?? null);
       else if (d.event === "onStateChange") setYtPlaying(d.info === 1 || d.info === 3);
@@ -92,6 +101,25 @@ export default function MusicDock({
     ytCommand("setVolume", [Math.round(volume * 100)]);
   }, [volume, isYoutube, ytReady, ytCommand]);
 
+  // the play/pause toggle for embedded players (YouTube). The lullaby /
+  // <audio> path just flips the global on/off; for embeds we command the
+  // player directly AND make sure the music state is "on" so the FAB pulses.
+  const onEmbedToggle = () => {
+    if (!isYoutube) {
+      toggleMusic();
+      return;
+    }
+    if (ytPlaying) {
+      // keep the global state in step so the FAB stops pulsing and the
+      // sync effect aligns — pauseVideo is idempotent, so this is safe
+      if (playing) toggleMusic();
+      ytCommand("pauseVideo");
+    } else {
+      requestPlay();
+      ytCommand("playVideo");
+    }
+  };
+
   const onFile = (e) => {
     const file = e.target.files && e.target.files[0];
     if (file) setCustomFromFile(file);
@@ -110,8 +138,14 @@ export default function MusicDock({
     <div className="music-dock">
       <audio ref={audioRef} loop preload="auto" onError={() => setAudioError(true)} />
 
-      {open && (
-        <div className="music-panel" role="dialog" aria-label="Music">
+      {/* the panel stays mounted (just hidden) so closing it never unmounts
+          the Spotify / YouTube embed and cuts the music off */}
+      <div
+        className={`music-panel${open ? "" : " closed"}`}
+        role="dialog"
+        aria-label="Music"
+        aria-hidden={!open}
+      >
           <p className="music-title">
             <NoteIcon size={18} color="#e76f8e" /> music for you
           </p>
@@ -145,7 +179,7 @@ export default function MusicDock({
           )}
 
           {!isSpotify && (
-            <button className="pill-btn primary small music-play" onClick={toggleMusic}>
+            <button className="pill-btn primary small music-play" onClick={onEmbedToggle}>
               {isYoutube ? (ytPlaying ? (<><PauseIcon size={14} /> pause</>) : (<><PlayIcon size={14} /> play</>)) : playing ? (<><PauseIcon size={14} /> pause</>) : (<><PlayIcon size={14} /> play</>)}
             </button>
           )}
@@ -212,8 +246,7 @@ export default function MusicDock({
           )}
           {warning && <p className="music-warn">{warning}</p>}
           {audioError && <p className="music-warn">hmm, that song wouldn't play — try a spotify / youtube link or an mp3</p>}
-        </div>
-      )}
+      </div>
 
       <button
         className={`music-fab${playing ? " playing" : ""}`}

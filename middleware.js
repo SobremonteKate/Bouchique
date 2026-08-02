@@ -56,7 +56,12 @@ export default async function middleware(request) {
     });
     const html = await res.text();
     const patched = patchTags(html, { title, description, url: shareUrl, image });
-    return new Response(patched, {
+    // personalized share links are gift URLs, not pages — keep them out of search
+    const finalHtml = patched.replace(
+      /<head[^>]*>/i,
+      '<head>\n    <meta name="robots" content="noindex, nofollow" />'
+    );
+    return new Response(finalHtml, {
       status: res.status,
       headers: {
         "content-type": "text/html; charset=utf-8",

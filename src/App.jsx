@@ -11,6 +11,7 @@ import { useChime } from "./hooks/useChime";
 import { useMusic } from "./hooks/useMusic";
 import { PRESET_MESSAGES, SIGN_OFFS, doodleFor } from "./data/messages";
 import { resolveTheme } from "../api/themes.js";
+import { parseMusicLink } from "./utils/musicLinks";
 
 function parseQuery() {
   const q = new URLSearchParams(window.location.search);
@@ -36,6 +37,8 @@ export default function App() {
   const [burst, setBurst] = useState(() => (query.name ? 1 : 0)); // celebrate shared-link opens
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareLink, setShareLink] = useState("");
   const [showIntro, setShowIntro] = useState(!query.name);
 
   const { playChime, playPop, playSwoosh } = useChime();
@@ -89,7 +92,39 @@ export default function App() {
     playPop(muted);
   };
 
-  const handleShare = async () => {
+  // shorten a music URL to its compact canonical form for the share link
+  // (youtu.be / open.spotify.com) so the copied link isn't a mile long
+  const compactMusicSrc = (src) => {
+    const p = parseMusicLink(src);
+    if (p.kind === "youtube" && p.videoId) return `https://youtu.be/${p.videoId}`;
+    if (p.kind === "spotify" && p.spotifyType && p.spotifyId) {
+      return `https://open.spotify.com/${p.spotifyType}/${p.spotifyId}`;
+    }
+    return src;
+  };
+
+  // best-effort short link via the same-origin /api/shorten function (is.gd
+  // blocks browser CORS, so the serverless function proxies it); silently
+  // falls back to the full URL when offline, local, or the API is unreachable
+  const shortenLink = async (url) => {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 3500);
+      const res = await fetch(`/api/shorten?url=${encodeURIComponent(url)}`, {
+        signal: ctrl.signal,
+      });
+      clearTimeout(t);
+      if (res.ok) {
+        const text = (await res.text()).trim();
+        if (/^https?:\/\/\S+$/.test(text)) return text;
+      }
+    } catch {
+      /* offline or blocked — keep the full URL */
+    }
+    return url;
+  };
+
+  const buildShareUrl = () => {
     const url = new URL(window.location.href);
     url.search = "";
     url.searchParams.set("name", displayName);
@@ -97,14 +132,29 @@ export default function App() {
     if (resolvedMsg) url.searchParams.set("msg", resolvedMsg);
     if (preset) url.searchParams.set("wish", preset); // banner palette matches the wish
     if (fromName.trim()) url.searchParams.set("from", fromName.trim());
-    if (music.customTrack?.remote) url.searchParams.set("music", music.customTrack.src);
+    if (music.customTrack?.remote) {
+      url.searchParams.set("music", compactMusicSrc(music.customTrack.src));
+    }
+    return url.toString();
+  };
+
+  const handleShare = async () => {
+    const url = buildShareUrl();
+    setShareLink(url);
+    setShareOpen(true);
+    playPop(muted);
+    const short = await shortenLink(url);
+    if (short && short !== url) setShareLink(short);
+  };
+
+  const copyShareLink = async () => {
     try {
-      await navigator.clipboard.writeText(url.toString());
+      await navigator.clipboard.writeText(shareLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
       playPop(muted);
     } catch {
-      window.prompt("Copy this link:", url.toString());
+      window.prompt("Copy this link:", shareLink);
     }
   };
 
@@ -150,6 +200,7 @@ export default function App() {
         muted={muted}
         autoOpen={Boolean(query.music)}
         toggleMusic={music.toggleMusic}
+        requestPlay={music.requestPlay}
         setVolume={music.setVolume}
         setCustomFromFile={music.setCustomFromFile}
         setCustomFromUrl={music.setCustomFromUrl}
@@ -197,7 +248,7 @@ export default function App() {
               <HeartLetterIcon size={16} /> open your note
             </button>
             <button className="pill-btn soft" onClick={handleShare}>
-              {copied ? (<><HeartIcon size={15} /> copied!</>) : (<><LinkIcon size={15} /> share the link</>)}
+              <LinkIcon size={15} /> share the link
             </button>
           </footer>
         </main>
@@ -280,6 +331,47 @@ export default function App() {
         </main>
       )}
 
+      {/* ------------------------------------------------ SHARE PREVIEW */}
+      {shareOpen && (
+        <div
+          className="share-overlay"
+          onClick={(e) => e.target === e.currentTarget && setShareOpen(false)}
+        >
+          <div className="share-card" onClick={(e) => e.stopPropagation()}>
+            <p className="share-title">
+              <LinkIcon size={15} /> their link
+            </p>
+            <div className="share-banner" style={{ background: theme.gradient }}>
+              <span className="share-banner-for" style={{ color: theme.subColor }}>
+                flowers for you,
+              </span>
+              <span className="share-banner-name" style={{ color: theme.nameColor }}>
+                {displayName}!
+              </span>
+              {resolvedMsg && (
+                <span className="share-banner-msg">“{resolvedMsg}”</span>
+              )}
+            </div>
+            <p className="share-hint">paste it in any chat — the card above is what they'll see</p>
+            <div className="share-row">
+              <input
+                className="share-input"
+                readOnly
+                value={shareLink}
+                onFocus={(e) => e.target.select()}
+                aria-label="Share link"
+              />
+              <button className="pill-btn primary small" onClick={copyShareLink}>
+                {copied ? (<><HeartIcon size={13} /> copied!</>) : (<><LinkIcon size={13} /> copy</>)}
+              </button>
+            </div>
+            <button className="link-btn" onClick={() => setShareOpen(false)}>
+              done
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ------------------------------------------------ NOTE */}
       {noteOpen && (
         <div
@@ -302,7 +394,7 @@ export default function App() {
                     close
                   </button>
                   <button className="pill-btn primary small" onClick={handleShare}>
-                    {copied ? (<><HeartIcon size={13} /> copied!</>) : (<><LinkIcon size={13} /> share</>)}
+                    <LinkIcon size={13} /> share
                   </button>
                 </div>
               </div>

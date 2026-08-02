@@ -244,6 +244,13 @@ export function useMusic(queryMusic, muted, wish) {
     setOn(true);
   }, []);
 
+  // force playback on — used by the dock's play button so a pasted YouTube /
+  // Spotify link actually starts even if the lullaby was never running
+  const requestPlay = useCallback(() => {
+    userStoppedRef.current = true;
+    setOn(true);
+  }, []);
+
   const setVolume = useCallback((v) => setVolumeState(v), []);
 
   const setCustomFromFile = useCallback((file) => {
@@ -320,6 +327,7 @@ export function useMusic(queryMusic, muted, wish) {
     warning,
     toggleMusic,
     startMusic,
+    requestPlay,
     setVolume,
     setCustomFromFile,
     setCustomFromUrl,
