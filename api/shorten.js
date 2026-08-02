@@ -7,7 +7,10 @@
    ========================================================================= */
 
 export default async function handler(req) {
-  const url = new URL(req.url);
+  // resolve relative req.url safely (Vercel passes an absolute URL, but
+  // some runtimes/proxies pass a path — never let that crash the function)
+  const base = `https://${req.headers?.get?.("host") || "bouchique.vercel.app"}`;
+  const url = new URL(req.url, base);
   const target = url.searchParams.get("url") || "";
   try {
     const parsed = new URL(target);

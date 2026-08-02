@@ -142,7 +142,10 @@ export async function buildOgResponse(name, msg, wish) {
 }
 
 export default async function handler(req) {
-  const { searchParams } = new URL(req.url);
+  // resolve relative req.url safely — never let URL parsing crash the function
+  const base = `https://${req.headers?.get?.("host") || "bouchique.vercel.app"}`;
+  const url = new URL(req.url, base);
+  const { searchParams } = url;
   try {
     return await buildOgResponse(
       searchParams.get("name") || "",
@@ -152,7 +155,6 @@ export default async function handler(req) {
   } catch {
     // if rendering ever fails, fall back to the static banner so chat
     // previews never show a broken image
-    const url = new URL(req.url);
     return Response.redirect(`${url.origin}/og-banner.png`, 302);
   }
 }
