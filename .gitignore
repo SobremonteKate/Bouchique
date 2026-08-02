@@ -1,0 +1,57 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Local environment files
+*.local
+.env
+.env.*
+!.env.example
+
+# Vercel CLI local state (project link, output, build cache)
+.vercel/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Visual Studio
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary files
+*.tmp
+*.temp
+*.eslintcache
+
+# Temporary scan files
+scan_out.txt
+unicode_scan.py
+unicode_scan.ipynb
+
+# Local tools
+.freebuff/
+
+# Archives
+*.zip
+*.freebuff

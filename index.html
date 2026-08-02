@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- primary SEO -->
+    <meta name="description" content="flowers for you — a one-of-a-kind digital bouquet, grown just for you." />
+    <meta name="theme-color" content="#ff8fab" />
+
+    <!-- Open Graph (Discord, WhatsApp, iMessage, Facebook) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bouchique" />
+    <meta property="og:url" content="/" />
+    <meta property="og:title" content="flowers for you" />
+    <meta property="og:description" content="a one-of-a-kind digital bouquet, grown just for you — open the link to see it bloom." />
+    <meta property="og:image" content="/og-banner.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A pastel bouquet of flowers with a ribbon" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="flowers for you" />
+    <meta name="twitter:description" content="a one-of-a-kind digital bouquet, grown just for you" />
+    <meta name="twitter:image" content="/og-banner.png" />
+
+    <title>Bouchique — flowers for you</title>
+
+    <!--
+      Runtime OG personalization. Social scrapers that execute JS (some
+      Twitter/Slack fetchers) get the recipient's name baked into the card;
+      the server-side middleware handles the rest. Runs before the app mounts.
+    -->
+    <script>
+      (function () {
+        try {
+          var q = new URLSearchParams(window.location.search);
+          var name = (q.get("name") || "").trim().slice(0, 40);
+          var msg = (q.get("msg") || "").trim().slice(0, 120);
+          var wish = (q.get("wish") || "").trim().slice(0, 40);
+          if (!name) return;
+          var esc = function (s) {
+            return s
+              .replace(/&/g, "&amp;")
+              .replace(/"/g, "&quot;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;");
+          };
+          var title = "flowers for you, " + esc(name) + "!";
+          var desc = msg
+            ? "“" + esc(msg) + "” — a bouquet, grown just for you"
+            : "a one-of-a-kind digital bouquet, grown just for you — open the link to see it bloom.";
+          var set = function (attr, key, value) {
+            var el = document.querySelector('meta[' + attr + '="' + key + '"]');
+            if (el) el.setAttribute("content", value);
+          };
+          set("property", "og:title", title);
+          set("property", "og:description", desc);
+          set("property", "og:url", window.location.href.split("#")[0]);
+          set("name", "twitter:title", title);
+          set("name", "twitter:description", desc);
+          var img = new URL(
+            "/api/og?name=" +
+              encodeURIComponent(name) +
+              (msg ? "&msg=" + encodeURIComponent(msg) : "") +
+              (wish ? "&wish=" + encodeURIComponent(wish) : ""),
+            window.location.origin
+          );
+          set("property", "og:image", img.href);
+          set("name", "twitter:image", img.href);
+          document.title = "flowers for you, " + name + "!";
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
